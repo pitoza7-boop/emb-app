@@ -1,0 +1,17 @@
+{
+  "expo": {
+    "name": "EMB",
+    "slug": "emb-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "emb",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.emb.etsmamadoubarboza"
+    },
+    "ios": {
+      "bundleIdentifier": "com.emb.etsmamadoubarboza"
+    },
+    "plugins": ["expo-router"]
+  }
+}
