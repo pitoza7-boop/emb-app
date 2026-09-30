@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
+  Linking,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -8,6 +10,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
+
+const BACKEND_URL = 'https://emb-paytech-backend.onrender.com';
 
 const products = [
   { id: '1', name: 'Réfrigérateur', price: 185000, category: 'Froid' },
@@ -24,6 +28,7 @@ const money = (value: number) =>
 export default function Home() {
   const [query, setQuery] = useState('');
   const [cart, setCart] = useState<string[]>([]);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const filteredProducts = useMemo(
     () =>
@@ -32,6 +37,47 @@ export default function Home() {
       ),
     [query]
   );
+
+  const payProduct = async (product: {
+    id: string;
+    name: string;
+    price: number;
+  }) => {
+    try {
+      setLoadingId(product.id);
+
+      const refCommand = `EMB-${product.id}-${Date.now()}`;
+
+      const response = await fetch(`${BACKEND_URL}/payment`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          item_name: product.name,
+          item_price: product.price,
+          ref_command: refCommand,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success === 1 && data.redirect_url) {
+        await Linking.openURL(data.redirect_url);
+      } else {
+        alert(
+          data.message || 'Impossible de créer le paiement PayTech.'
+        );
+      }
+    } catch (error) {
+      alert(
+        'Erreur de connexion. Vérifiez votre connexion Internet et réessayez.'
+      );
+    } finally {
+      setLoadingId(null);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -80,16 +126,32 @@ export default function Home() {
                 {money(item.price)}
               </Text>
 
-              <Pressable
-                style={styles.button}
-                onPress={() =>
-                  setCart((previous) => [...previous, item.id])
-                }
-              >
-                <Text style={styles.buttonText}>
-                  Ajouter au panier
-                </Text>
-              </Pressable>
+              <View style={styles.buttons}>
+                <Pressable
+                  style={styles.cartButton}
+                  onPress={() =>
+                    setCart((previous) => [...previous, item.id])
+                  }
+                >
+                  <Text style={styles.buttonText}>
+                    Ajouter
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={styles.payButton}
+                  onPress={() => payProduct(item)}
+                  disabled={loadingId === item.id}
+                >
+                  {loadingId === item.id ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.buttonText}>
+                      Payer
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
             </View>
           </View>
         )}
@@ -97,7 +159,10 @@ export default function Home() {
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>
-          Paiement mobile disponible : Wave • Orange Money
+          Paiement sécurisé avec PayTech
+        </Text>
+        <Text style={styles.footerMethods}>
+          Wave • Orange Money • Autres moyens disponibles
         </Text>
       </View>
     </SafeAreaView>
@@ -209,13 +274,26 @@ const styles = StyleSheet.create({
     marginTop: 7,
   },
 
-  button: {
+  buttons: {
+    flexDirection: 'row',
+    gap: 8,
     marginTop: 9,
-    backgroundColor: '#F28C28',
+  },
+
+  cartButton: {
+    backgroundColor: '#555555',
     paddingVertical: 9,
     paddingHorizontal: 12,
     borderRadius: 9,
-    alignSelf: 'flex-start',
+  },
+
+  payButton: {
+    backgroundColor: '#F28C28',
+    paddingVertical: 9,
+    paddingHorizontal: 18,
+    borderRadius: 9,
+    minWidth: 70,
+    alignItems: 'center',
   },
 
   buttonText: {
@@ -229,7 +307,15 @@ const styles = StyleSheet.create({
 
   footerText: {
     textAlign: 'center',
-    color: '#666666',
+    color: '#555555',
     fontSize: 12,
+    fontWeight: '700',
+  },
+
+  footerMethods: {
+    textAlign: 'center',
+    color: '#888888',
+    fontSize: 11,
+    marginTop: 3,
   },
 });
