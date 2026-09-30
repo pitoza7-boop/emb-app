@@ -5,6 +5,7 @@ import {
   Linking,
   Pressable,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -25,28 +26,75 @@ const products = [
 const money = (value: number) =>
   `${value.toLocaleString('fr-FR')} FCFA`;
 
-export default function Home() {
+export default function App() {
   const [query, setQuery] = useState('');
-  const [cart, setCart] = useState<string[]>([]);
-  const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [category, setCategory] = useState('Tous');
+  const [cart, setCart] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(false);
 
-  const filteredProducts = useMemo(
-    () =>
-      products.filter((product) =>
-        product.name.toLowerCase().includes(query.toLowerCase())
-      ),
-    [query]
+  const categories = ['Tous', ...new Set(products.map((p) => p.category))];
+
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      const matchesSearch = product.name
+        .toLowerCase()
+        .includes(query.toLowerCase());
+
+      const matchesCategory =
+        category === 'Tous' || product.category === category;
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [query, category]);
+
+  const cartCount = Object.values(cart).reduce(
+    (total, quantity) => total + quantity,
+    0
   );
 
-  const payProduct = async (product: {
-    id: string;
-    name: string;
-    price: number;
-  }) => {
-    try {
-      setLoadingId(product.id);
+  const cartTotal = products.reduce((total, product) => {
+    return total + product.price * (cart[product.id] || 0);
+  }, 0);
 
-      const refCommand = `EMB-${product.id}-${Date.now()}`;
+  const addToCart = (id: string) => {
+    setCart((previous) => ({
+      ...previous,
+      [id]: (previous[id] || 0) + 1,
+    }));
+  };
+
+  const removeFromCart = (id: string) => {
+    setCart((previous) => {
+      const next = { ...previous };
+
+      if ((next[id] || 0) <= 1) {
+        delete next[id];
+      } else {
+        next[id] -= 1;
+      }
+
+      return next;
+    });
+  };
+
+  const payCart = async () => {
+    if (cartCount === 0) {
+      alert('Votre panier est vide.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const items = products
+        .filter((product) => cart[product.id])
+        .map(
+          (product) =>
+            `${product.name} x${cart[product.id]}`
+        )
+        .join(', ');
+
+      const refCommand = `EMB-CART-${Date.now()}`;
 
       const response = await fetch(`${BACKEND_URL}/payment`, {
         method: 'POST',
@@ -55,8 +103,8 @@ export default function Home() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          item_name: product.name,
-          item_price: product.price,
+          item_name: items,
+          item_price: cartTotal,
           ref_command: refCommand,
         }),
       });
@@ -67,15 +115,15 @@ export default function Home() {
         await Linking.openURL(data.redirect_url);
       } else {
         alert(
-          data.message || 'Impossible de créer le paiement PayTech.'
+          data.message || 'Impossible de créer le paiement.'
         );
       }
     } catch (error) {
       alert(
-        'Erreur de connexion. Vérifiez votre connexion Internet et réessayez.'
+        'Erreur de connexion. Vérifiez Internet et réessayez.'
       );
     } finally {
-      setLoadingId(null);
+      setLoading(false);
     }
   };
 
@@ -89,8 +137,11 @@ export default function Home() {
           </Text>
         </View>
 
-        <View style={styles.cartBadge}>
-          <Text style={styles.cartText}>{cart.length}</Text>
+        <View style={styles.cartCircle}>
+          <Text style={styles.cartNumber}>
+            {cartCount}
+          </Text>
+          <Text style={styles.cartLabel}>PANIER</Text>
         </View>
       </View>
 
@@ -100,70 +151,134 @@ export default function Home() {
         value={query}
         onChangeText={setQuery}
         placeholder="Rechercher un produit..."
+        placeholderTextColor="#888"
         style={styles.search}
       />
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.categories}
+      >
+        {categories.map((item) => (
+          <Pressable
+            key={item}
+            onPress={() => setCategory(item)}
+            style={[
+              styles.categoryButton,
+              category === item && styles.categoryActive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.categoryText,
+                category === item && styles.categoryTextActive,
+              ]}
+            >
+              {item}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
 
       <FlatList
         data={filteredProducts}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <View style={styles.productImage}>
-              <Text style={styles.imageText}>EMB</Text>
-            </View>
+        renderItem={({ item }) => {
+          const quantity = cart[item.id] || 0;
 
-            <View style={styles.productInfo}>
-              <Text style={styles.productName}>
-                {item.name}
-              </Text>
+          return (
+            <View style={styles.card}>
+              <View style={styles.productImage}>
+                <Text style={styles.imageText}>EMB</Text>
+              </View>
 
-              <Text style={styles.category}>
-                {item.category}
-              </Text>
+              <View style={styles.productInfo}>
+                <Text style={styles.productName}>
+                  {item.name}
+                </Text>
 
-              <Text style={styles.price}>
-                {money(item.price)}
-              </Text>
+                <Text style={styles.category}>
+                  {item.category}
+                </Text>
 
-              <View style={styles.buttons}>
-                <Pressable
-                  style={styles.cartButton}
-                  onPress={() =>
-                    setCart((previous) => [...previous, item.id])
-                  }
-                >
-                  <Text style={styles.buttonText}>
-                    Ajouter
-                  </Text>
-                </Pressable>
+                <Text style={styles.price}>
+                  {money(item.price)}
+                </Text>
 
-                <Pressable
-                  style={styles.payButton}
-                  onPress={() => payProduct(item)}
-                  disabled={loadingId === item.id}
-                >
-                  {loadingId === item.id ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
+                <View style={styles.buttons}>
+                  <Pressable
+                    style={styles.addButton}
+                    onPress={() => addToCart(item.id)}
+                  >
                     <Text style={styles.buttonText}>
-                      Payer
+                      Ajouter
                     </Text>
+                  </Pressable>
+
+                  {quantity > 0 && (
+                    <View style={styles.quantityBox}>
+                      <Pressable
+                        style={styles.quantityButton}
+                        onPress={() =>
+                          removeFromCart(item.id)
+                        }
+                      >
+                        <Text style={styles.quantityText}>
+                          −
+                        </Text>
+                      </Pressable>
+
+                      <Text style={styles.quantity}>
+                        {quantity}
+                      </Text>
+
+                      <Pressable
+                        style={styles.quantityButton}
+                        onPress={() =>
+                          addToCart(item.id)
+                        }
+                      >
+                        <Text style={styles.quantityText}>
+                          +
+                        </Text>
+                      </Pressable>
+                    </View>
                   )}
-                </Pressable>
+                </View>
               </View>
             </View>
-          </View>
-        )}
+          );
+        }}
       />
 
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          Paiement sécurisé avec PayTech
-        </Text>
-        <Text style={styles.footerMethods}>
-          Wave • Orange Money • Autres moyens disponibles
-        </Text>
+      <View style={styles.bottom}>
+        <View>
+          <Text style={styles.totalLabel}>
+            Total panier
+          </Text>
+          <Text style={styles.total}>
+            {money(cartTotal)}
+          </Text>
+        </View>
+
+        <Pressable
+          style={[
+            styles.payButton,
+            cartCount === 0 && styles.payDisabled,
+          ]}
+          onPress={payCart}
+          disabled={loading || cartCount === 0}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.payText}>
+              Payer le panier
+            </Text>
+          )}
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -180,13 +295,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 18,
-    paddingBottom: 12,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
 
   brand: {
-    fontSize: 34,
-    fontWeight: '800',
+    fontSize: 36,
+    fontWeight: '900',
     color: '#F28C28',
   },
 
@@ -195,43 +310,78 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  cartBadge: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+  cartCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: '#F28C28',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  cartText: {
+  cartNumber: {
     color: '#FFFFFF',
+    fontSize: 21,
+    fontWeight: '900',
+  },
+
+  cartLabel: {
+    color: '#FFFFFF',
+    fontSize: 8,
     fontWeight: '800',
-    fontSize: 17,
   },
 
   title: {
-    fontSize: 25,
-    fontWeight: '800',
-    marginTop: 12,
+    fontSize: 28,
+    fontWeight: '900',
+    marginTop: 14,
     marginBottom: 10,
   },
 
   search: {
     borderWidth: 1,
     borderColor: '#DDDDDD',
-    borderRadius: 12,
-    padding: 13,
-    marginBottom: 14,
+    borderRadius: 14,
+    paddingHorizontal: 15,
+    paddingVertical: 13,
+    fontSize: 16,
+    marginBottom: 10,
+  },
+
+  categories: {
+    marginBottom: 10,
+    maxHeight: 45,
+  },
+
+  categoryButton: {
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 9,
+    marginRight: 8,
+  },
+
+  categoryActive: {
+    backgroundColor: '#F28C28',
+    borderColor: '#F28C28',
+  },
+
+  categoryText: {
+    color: '#555555',
+    fontWeight: '700',
+  },
+
+  categoryTextActive: {
+    color: '#FFFFFF',
   },
 
   list: {
-    paddingBottom: 20,
+    paddingBottom: 120,
   },
 
   card: {
     flexDirection: 'row',
-    gap: 14,
     borderWidth: 1,
     borderColor: '#EEEEEE',
     borderRadius: 16,
@@ -240,82 +390,126 @@ const styles = StyleSheet.create({
   },
 
   productImage: {
-    width: 95,
+    width: 105,
     height: 105,
-    borderRadius: 12,
-    backgroundColor: '#F4F4F4',
+    borderRadius: 13,
+    backgroundColor: '#F5F5F5',
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   imageText: {
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: 24,
+    fontWeight: '900',
     color: '#F28C28',
   },
 
   productInfo: {
     flex: 1,
+    marginLeft: 13,
   },
 
   productName: {
     fontSize: 17,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 
   category: {
     color: '#777777',
-    marginTop: 2,
+    marginTop: 3,
   },
 
   price: {
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: '900',
     marginTop: 7,
   },
 
   buttons: {
     flexDirection: 'row',
-    gap: 8,
+    alignItems: 'center',
     marginTop: 9,
   },
 
-  cartButton: {
+  addButton: {
     backgroundColor: '#555555',
     paddingVertical: 9,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     borderRadius: 9,
-  },
-
-  payButton: {
-    backgroundColor: '#F28C28',
-    paddingVertical: 9,
-    paddingHorizontal: 18,
-    borderRadius: 9,
-    minWidth: 70,
-    alignItems: 'center',
   },
 
   buttonText: {
     color: '#FFFFFF',
-    fontWeight: '700',
+    fontWeight: '800',
   },
 
-  footer: {
-    paddingVertical: 10,
+  quantityBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    borderRadius: 9,
   },
 
-  footerText: {
+  quantityButton: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  quantityText: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#F28C28',
+  },
+
+  quantity: {
+    minWidth: 25,
     textAlign: 'center',
-    color: '#555555',
+    fontWeight: '900',
+  },
+
+  bottom: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 10,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#EEEEEE',
+    paddingTop: 9,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  totalLabel: {
+    color: '#777777',
     fontSize: 12,
-    fontWeight: '700',
   },
 
-  footerMethods: {
-    textAlign: 'center',
-    color: '#888888',
-    fontSize: 11,
-    marginTop: 3,
+  total: {
+    fontSize: 18,
+    fontWeight: '900',
+  },
+
+  payButton: {
+    backgroundColor: '#F28C28',
+    borderRadius: 11,
+    paddingVertical: 12,
+    paddingHorizontal: 17,
+    minWidth: 135,
+    alignItems: 'center',
+  },
+
+  payDisabled: {
+    backgroundColor: '#BBBBBB',
+  },
+
+  payText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
   },
 });
