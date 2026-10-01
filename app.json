@@ -12,6 +12,15 @@
     "ios": {
       "bundleIdentifier": "com.emb.etsmamadoubarboza"
     },
-    "plugins": ["expo-router"]
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "81133d3b-2bd1-47f2-9dba-88f73b846385"
+      }
+    }
   }
 }
