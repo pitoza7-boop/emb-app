@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   brand: {
     fontSize: 36,
     fontWeight: '900',
-    color: '#F28C28',
+    color: '#F0441E',
   },
 
   subtitle: {
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#F28C28',
+    backgroundColor: '#F0441E',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
 
   categoryButton: {
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#1F3A93',
     borderRadius: 20,
     paddingHorizontal: 15,
     paddingVertical: 9,
@@ -363,12 +363,12 @@ const styles = StyleSheet.create({
   },
 
   categoryActive: {
-    backgroundColor: '#F28C28',
-    borderColor: '#F28C28',
+    backgroundColor: '#F0441E',
+    borderColor: '#F0441E',
   },
 
   categoryText: {
-    color: '#555555',
+    color: '#1F3A93',
     fontWeight: '700',
   },
 
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
   imageText: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#F28C28',
+    color: '#F0441E',
   },
 
   productInfo: {
@@ -462,7 +462,7 @@ const styles = StyleSheet.create({
   quantityText: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#F28C28',
+    color: '#F0441E',
   },
 
   quantity: {
@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
   },
 
   payButton: {
-    backgroundColor: '#F28C28',
+    backgroundColor: '#F0441E',
     borderRadius: 11,
     paddingVertical: 12,
     paddingHorizontal: 17,
